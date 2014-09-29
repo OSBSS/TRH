@@ -15,6 +15,9 @@
 // Note: measure the actual resistance of the resistor before soldering it on the board.
 // Replace 10,000 in function with actual resistance value. This gives us more accurate readings.
 
+// 9/29/2014 - changed various power saving features in library
+// pre-sleep analog port states are now saved before sleeping and restored after waking up
+
 //****************************************************************
 
 #include <EEPROM.h>
@@ -55,7 +58,6 @@ ISR(PCINT0_vect)  // Setup interrupts on digital pin 8
 void setup()
 {
   Serial.begin(19200); // open serial at 19200 bps
-  chip.turnOffBOD();    // turn off Brown-out detection to save power
   pinMode(POWA, OUTPUT);
   pinMode(LED, OUTPUT);
   
@@ -99,17 +101,19 @@ void setup()
 void loop()
 {
   digitalWrite(POWA, LOW);  // turn off microSD card to save power
-  //chip.turnOffADC();    // turn off ADC to save power
-  chip.turnOffSPI();  // turn off SPI bus to save power
-  SPCR = 0;
   delay(1);  // give some delay for SD card power to be low before processor sleeps to avoid it being stuck
-
-  asm("sleep");    // put processor in extreme power down mode - GOODNIGHT!
-                   // average current draw on Mini Pro should now be around 0.19 mA
-                   // Processor will only wake up with an interrupt generated from the RTC, which occurs every logging interval
+  chip.turnOffADC();    // turn off ADC to save power
+  chip.turnOffSPI();  // turn off SPI bus to save power
+  chip.turnOffBOD();    // turn off Brown-out detection to save power
+  SPCR = 0;
   
+  chip.goodNight();    // put processor in extreme power down mode - GOODNIGHT!
+                       // average current draw on Mini Pro should now be around 0.195 mA (with both onboard LEDs taken out)
+                       // Processor will only wake up with an interrupt generated from the RTC, which occurs every logging interval
+                       
+  chip.goodMorning();  // Wakey wakey - GOODMORNING! This will restore pre-sleep state of analog pins
   chip.turnOnSPI();   // turn on SPI bus once the processor wakes up
-  //chip.turnOnADC();
+  chip.turnOnADC();    // enable ADC after processor wakes up
   delay(1);    // important delay to ensure SPI bus is properly activated
   RTC.alarmFlagClear();    // clear alarm flag
   pinMode(POWA, OUTPUT);
@@ -131,12 +135,12 @@ void loop()
     
     // get sensor values
     float adc0 = averageADC(A0);
-    float R = resistance(adc0, 10000); // Replace 10000 ohm with the actual resistance of the resistor measured using a multimeter (e.g. 9880 ohm)
+    float R = resistance(adc0, 9920); // Replace 10000 ohm with the actual resistance of the resistor measured using a multimeter (e.g. 9880 ohm)
     float temperature = steinhart(R);  // get temperature from thermistor using the custom Steinhart-hart equation by US sensors
     //float temperature = sensor.getTemperature();  // get temperature from SHT15 
     float humidity = sensor.getHumidity(temperature);  // get humidity from SHT15
     float dewPoint = sensor.getDewPoint(temperature, humidity); // calculate dew point using T and RH
-
+    
     file.print(time);
     file.print(",");
     file.print(temperature, 3);  // print temperature upto 4 decimal places
@@ -213,9 +217,9 @@ void SDcardError()
     for(int i=0;i<3;i++)   // blink LED 3 times to indicate SD card write error
     {
       digitalWrite(LED, HIGH);
-      delay(10);
+      delay(50);
       digitalWrite(LED, LOW);
-      delay(100);
+      delay(175);
     }
 }
 
