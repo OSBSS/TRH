@@ -18,6 +18,9 @@
 // 9/29/2014 - changed various power saving features in library
 // pre-sleep analog port states are now saved before sleeping and restored after waking up
 
+// 9/30/2014 - changed averaging function to take 5 samples instead of 30
+// Rearranged order of saving analog port state in powersaver library
+
 //****************************************************************
 
 #include <EEPROM.h>
@@ -108,12 +111,12 @@ void loop()
   SPCR = 0;
   
   chip.goodNight();    // put processor in extreme power down mode - GOODNIGHT!
+                       // this function saves previous states of analog pins and sets them to LOW INPUTS
                        // average current draw on Mini Pro should now be around 0.195 mA (with both onboard LEDs taken out)
                        // Processor will only wake up with an interrupt generated from the RTC, which occurs every logging interval
                        
-  chip.goodMorning();  // Wakey wakey - GOODMORNING! This will restore pre-sleep state of analog pins
-  chip.turnOnSPI();   // turn on SPI bus once the processor wakes up
   chip.turnOnADC();    // enable ADC after processor wakes up
+  chip.turnOnSPI();   // turn on SPI bus once the processor wakes up
   delay(1);    // important delay to ensure SPI bus is properly activated
   RTC.alarmFlagClear();    // clear alarm flag
   pinMode(POWA, OUTPUT);
@@ -166,11 +169,11 @@ void loop()
 float averageADC(int pin)
 {
   int sum=0;
-  for(int i=0;i<30;i++)
+  for(int i=0;i<5;i++)
   {
      sum = sum + analogRead(pin);
   }
-  float average = sum/30.0;
+  float average = sum/5.0;
   return average;
 }
 
@@ -219,7 +222,7 @@ void SDcardError()
       digitalWrite(LED, HIGH);
       delay(50);
       digitalWrite(LED, LOW);
-      delay(175);
+      delay(150);
     }
 }
 
