@@ -136,19 +136,25 @@ void loop()
     String time = RTC.timeStamp();    // get date and time from RTC
     SPCR = 0;
     
+    for(int i=0; i<5; i++)
+      analogRead(A0);  // first few readings from ADC may not be accurate, so they're cleared out here
+    delay(1);
+    
     // get sensor values
     float adc0 = averageADC(A0);
-    float R = resistance(adc0, 9920); // Replace 10000 ohm with the actual resistance of the resistor measured using a multimeter (e.g. 9880 ohm)
+    float R = resistance(adc0, 10000); // Replace 10000 ohm with the actual resistance of the resistor measured using a multimeter (e.g. 9880 ohm)
     float temperature = steinhart(R);  // get temperature from thermistor using the custom Steinhart-hart equation by US sensors
-    //float temperature = sensor.getTemperature();  // get temperature from SHT15 
+    float temperature_SHT15 = sensor.getTemperature();  // get temperature from SHT15 
     float humidity = sensor.getHumidity(temperature);  // get humidity from SHT15
     float dewPoint = sensor.getDewPoint(temperature, humidity); // calculate dew point using T and RH
     
     file.print(time);
     file.print(",");
-    file.print(temperature, 3);  // print temperature upto 4 decimal places
+    file.print(temperature, 3);  // print temperature upto 3 decimal places
     file.print(",");
-    file.print(humidity, 3);  // print humidity upto 4 decimal places
+    file.print(temperature_SHT15, 3);  // print temperature of SHT15 up to 3 decimal places
+    file.print(",");
+    file.print(humidity, 3);  // print humidity upto 3 decimal places
     file.print(",");
     file.print(dewPoint);
     file.println();
