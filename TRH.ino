@@ -1,25 +1,7 @@
 //****************************************************************
 
-// 8/22/2014 - filename through GUI now works - saves to EEPROM
-// Added error handling for invalid filenames in GUI
-
-// 9/16/2014 - temporarily removed "fail" code. Now Arduino won't sleep permanently after 10 tries to read SD card.
-
-// 9/24/2014 - Using SHT15libmod2 to use thermistor temperature readings in RH compensation
-// cleaned up unused variables and code
-// Slightly edited DS3234lib3. Now getFileTimeStamp function is called parseTimeStamp and is called automatically by timeStamp function
-// Decreased LED light up delay
-// Edited filetimestamp function
-// Connected thermistor on A0 pin.
-// Added thermistor code from water activity
-// Note: measure the actual resistance of the resistor before soldering it on the board.
-// Replace 10,000 in function with actual resistance value. This gives us more accurate readings.
-
-// 9/29/2014 - changed various power saving features in library
-// pre-sleep analog port states are now saved before sleeping and restored after waking up
-
-// 9/30/2014 - changed averaging function to take 5 samples instead of 30
-// Rearranged order of saving analog port state in powersaver library
+// OSBSS T/RH datalogger code - v0.03
+// Last edited on October 9th, 2014
 
 //****************************************************************
 
@@ -144,15 +126,13 @@ void loop()
     float adc0 = averageADC(A0);
     float R = resistance(adc0, 10000); // Replace 10000 ohm with the actual resistance of the resistor measured using a multimeter (e.g. 9880 ohm)
     float temperature = steinhart(R);  // get temperature from thermistor using the custom Steinhart-hart equation by US sensors
-    float temperature_SHT15 = sensor.getTemperature();  // get temperature from SHT15 
+    //float temperature_SHT15 = sensor.getTemperature();  // get temperature from SHT15 
     float humidity = sensor.getHumidity(temperature);  // get humidity from SHT15
     float dewPoint = sensor.getDewPoint(temperature, humidity); // calculate dew point using T and RH
     
     file.print(time);
     file.print(",");
     file.print(temperature, 3);  // print temperature upto 3 decimal places
-    file.print(",");
-    file.print(temperature_SHT15, 3);  // print temperature of SHT15 up to 3 decimal places
     file.print(",");
     file.print(humidity, 3);  // print humidity upto 3 decimal places
     file.print(",");
