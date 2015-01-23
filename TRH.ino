@@ -1,7 +1,9 @@
 //****************************************************************
 
 // OSBSS T/RH datalogger code - v0.03
-// Last edited on October 9th, 2014
+// Last edited on October 15th, 2014
+
+// Added function to turn off WDT in PowerSaver library
 
 //****************************************************************
 
@@ -16,11 +18,11 @@ PowerSaver chip;  // declare object for PowerSaver class
 // Main code stuff   ******************************
 #define POWA 4    // pin 4 supplies power to microSD card breakout and SHT15 sensor
 int SDcsPin = 9;
-long interval = 10;  // interval in seconds (value automatically assigned by the GUI)
+long interval = 60;  // interval in seconds (value automatically assigned by the GUI)
 
 // RTC stuff   ******************************
 DS3234 RTC;    // declare object for DS3234 class
-int dayStart = 0, hourStart = 0, minStart = 0;    // start time: day of the month, hour, minute (values automatically assigned by the GUI)
+int dayStart = 15, hourStart = 20, minStart = 30;    // start time: day of the month, hour, minute (values automatically assigned by the GUI)
 
 // SD card stuff   ******************************
 #define LED 7  // pin 7 controls LED
@@ -46,21 +48,21 @@ void setup()
   pinMode(POWA, OUTPUT);
   pinMode(LED, OUTPUT);
   
-  RTC.fetchAndSetTime();  // syncs date and time with the PC's clock
-  RTC.getLaunchParameters(interval, dayStart, hourStart, minStart); // get parameters from GUI
-  readFileName();  // read filename from EEPROM (assigned by GUI)
-  delay(500);    // give some delay to ensure the RTC gets proper date/time
+  //RTC.fetchAndSetTime();  // syncs date and time with the PC's clock
+  //RTC.getLaunchParameters(interval, dayStart, hourStart, minStart); // get parameters from GUI
+  //readFileName();  // read filename from EEPROM (assigned by GUI)
+  //delay(500);    // give some delay to ensure the RTC gets proper date/time
   
   digitalWrite(POWA, HIGH);    // turn on SD card
-  delay(50);    // give some delay to ensure SD card is turned on properly
+  delay(5);    // give some delay to ensure SD card is turned on properly
   if(!sd.init(SPI_FULL_SPEED, SDcsPin))  // initialize SD card on the SPI bus
   {
-    delay(100);
+    delay(10);
     SDcardError();
   }
   else
   {
-    delay(50);
+    delay(10);
     file.open(filename, O_CREAT | O_APPEND | O_WRITE);  // open file in write mode and append data to the end of file
     delay(1);
     String time = RTC.timeStamp();    // get date and time from RTC
@@ -75,7 +77,6 @@ void setup()
     digitalWrite(LED, LOW);
     delay(10);    
   }
-  
   RTC.checkInterval(hourStart, minStart, interval); // Check if the logging interval is in secs, mins or hours
   RTC.alarm2set(dayStart, hourStart, minStart);  // Configure begin time
   RTC.alarmFlagClear();  // clear alarm flag
@@ -89,8 +90,9 @@ void loop()
   delay(1);  // give some delay for SD card power to be low before processor sleeps to avoid it being stuck
   chip.turnOffADC();    // turn off ADC to save power
   chip.turnOffSPI();  // turn off SPI bus to save power
+  chip.turnOffWDT();  // turn off WatchDog Timer to save power
   chip.turnOffBOD();    // turn off Brown-out detection to save power
-  SPCR = 0;
+  
   
   chip.goodNight();    // put processor in extreme power down mode - GOODNIGHT!
                        // this function saves previous states of analog pins and sets them to LOW INPUTS
@@ -103,16 +105,16 @@ void loop()
   RTC.alarmFlagClear();    // clear alarm flag
   pinMode(POWA, OUTPUT);
   digitalWrite(POWA, HIGH);  // turn on SD card power
-  delay(50);    // give delay to let the SD card get full powa
+  delay(5);    // give delay to let the SD card get full powa
   pinMode(SDcsPin, OUTPUT);
   if(!sd.init(SPI_FULL_SPEED, SDcsPin))    // very important - reinitialize SD card on the SPI bus
   {
-    delay(100);
+    delay(10);
     SDcardError();
   }
   else
   {
-    delay(50);
+    delay(10);
     file.open(filename, O_WRITE | O_AT_END);  // open file in write mode
     delay(1);
     String time = RTC.timeStamp();    // get date and time from RTC
@@ -123,8 +125,8 @@ void loop()
     delay(1);
     
     // get sensor values
-    float adc0 = averageADC(A0);
-    float R = resistance(adc0, 10000); // Replace 10000 ohm with the actual resistance of the resistor measured using a multimeter (e.g. 9880 ohm)
+    float adc = averageADC(A0);
+    float R = resistance(adc, 10000); // Replace 10,000 ohm with the actual resistance of the resistor measured using a multimeter (e.g. 9880 ohm)
     float temperature = steinhart(R);  // get temperature from thermistor using the custom Steinhart-hart equation by US sensors
     //float temperature_SHT15 = sensor.getTemperature();  // get temperature from SHT15 
     float humidity = sensor.getHumidity(temperature);  // get humidity from SHT15
@@ -146,7 +148,6 @@ void loop()
     digitalWrite(LED, LOW);
     delay(10);  
   }
-  
   RTC.setNextAlarm();      //set next alarm before sleeping
   delay(1);
 }
@@ -154,7 +155,7 @@ void loop()
 // Averaging ADC values to counter noise in readings  *********************************************
 float averageADC(int pin)
 {
-  int sum=0;
+  float sum=0.0;
   for(int i=0;i<5;i++)
   {
      sum = sum + analogRead(pin);
