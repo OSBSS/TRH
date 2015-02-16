@@ -33,14 +33,13 @@ PowerSaver chip;  // declare object for PowerSaver class
 RTC_DS3234 RTC_Sync(10);  // pin 10 is SS pin for RTC
 DS3234 RTC;    // declare object for DS3234 class
 long interval = 60;  // set logging interval in SECONDS, eg: set 300 seconds for an interval of 5 mins
-int dayStart = 13, hourStart = 20, minStart = 50;    // define logger start time: day of the month, hour, minute
+int dayStart = 15, hourStart = 22, minStart = 10;    // define logger start time: day of the month, hour, minute
 
 // Main code stuff   ******************************
 #define POWA 4    // pin 4 supplies power to microSD card breakout and SHT15 sensor
 #define RTCPOWA 6    // pin 6 supplies power to DS3234 RTC
 #define LED 7  // pin 7 controls LED
-byte d, p;
-boolean bytes=false;
+byte d, p, d1, p1, bytes=0;
 
 // SD card stuff   ******************************
 int SDcsPin = 9; // pin 9 is CS pin for MicroSD breakout
@@ -102,7 +101,7 @@ void setup()
   RTC.checkInterval(hourStart, minStart, interval); // Check if the logging interval is in secs, mins or hours
   RTC.alarm2set(dayStart, hourStart, minStart);  // Configure begin time
   RTC.alarmFlagClear();  // clear alarm flag
-  RTC.setTempConvRate();  // set temperature conversion  rate to 512 seconds.
+  //RTC.setTempConvRate();  // set temperature conversion  rate to 512 seconds.
                           // This significantly improves battery life of coin cell
                           // at the cost of reduced time accuracy in environments with rapid temperature fluctuations
                           
@@ -117,34 +116,40 @@ void loop()
   //pinMode(RTCPOWA, INPUT); // setting RTC power to input to force the pin to high impedance state
   digitalWrite(RTCPOWA, LOW);  // turn off RTC to save power
   delay(1);  // give some delay for SD card and RTC to be low before processor sleeps to avoid it being stuck
-  if(bytes==false)
+  
+  if(bytes==0) // save the initial state
   {
-    p=PORTD; // save state of pins on port D
-    d=DDRD; // save direction of pins on port D
-    bytes=true;
+    p=PORTD; // save initial states of pins on port D
+    d=DDRD; // save initial directions of pins on port D
+    bytes=1;
   }
-  else
-  {
-    PORTD=p; // restore initial state of pins on port D
-    DDRD=d;// restore initial direction of pins on port D
-  }
+  
+  p1=PORTD; // save states of pins on port D
+  d1=DDRD; // save directions of pins on port D
+  
+  PORTD=p; // restore initial states of pins on port D before sleeping
+  DDRD=d;  // restore initial directions of pins on port D before sleeping
+  
   chip.turnOffADC();    // turn off ADC to save power
   chip.turnOffSPI();  // turn off SPI bus to save power
-  chip.turnOffWDT();  // turn off WatchDog Timer to save power (does not work for Pro Mini - only works for Uno)
+  //chip.turnOffWDT();  // turn off WatchDog Timer to save power (does not work for Pro Mini - only works for Uno)
   chip.turnOffBOD();    // turn off Brown-out detection to save power
     
   chip.goodNight();    // put processor in extreme power down mode - GOODNIGHT!
                        // this function saves previous states of analog pins and sets them to LOW INPUTS
                        // average current draw on Mini Pro should now be around 0.195 mA (with both onboard LEDs taken out)
                        // Processor will only wake up with an interrupt generated from the RTC, which occurs every logging interval
-                       
+  
+  PORTD=p1; // restore states of pins on port D before sleeping
+  DDRD=d1;  // restore directions of pins on port D before sleeping   
+  
   chip.turnOnADC();    // enable ADC after processor wakes up
   chip.turnOnSPI();   // turn on SPI bus once the processor wakes up
   delay(1);    // important delay to ensure SPI bus is properly activated
   digitalWrite(RTCPOWA, HIGH);    // turn on RTC
   //pinMode(RTCPOWA, OUTPUT);  // this step is important here as it ensures the SQW pin is now pulled up to VCC
   RTC.alarmFlagClear();    // clear alarm flag
-  
+  //RTC.setTempConvRate();
   pinMode(POWA, OUTPUT);
   digitalWrite(POWA, HIGH);  // turn on SD card power
   delay(1);    // give delay to let the SD card and SHT15 get full powa
