@@ -1,10 +1,7 @@
 //****************************************************************
 
 // OSBSS T/RH datalogger code - v0.03
-// Last edited on February 16, 2015
-
-// RTC module ON, avg. current draw: 0.195mA
-// No time sync in code
+// Last edited on February 18, 2015
 
 //****************************************************************
 
@@ -14,30 +11,26 @@
 #include <SHT15libmod2.h>
 #include <SdFat.h>
 
-PowerSaver chip;  // declare object for PowerSaver class
-
-// RTC stuff   ******************************
-DS3234 RTC;    // declare object for DS3234 class
+// Launch Variables   ******************************
 long interval = 60;  // set logging interval in SECONDS, eg: set 300 seconds for an interval of 5 mins
 int dayStart = 15, hourStart = 22, minStart = 10;    // define logger start time: day of the month, hour, minute
+char filename[15] = "log.csv";    // Set filename Format: "12345678.123". Cannot be more than 8 characters in length, contain spaces or begin with a number
 
-// Main code stuff   ******************************
+// Global objects and variables   ******************************
+PowerSaver chip;  	// declare object for PowerSaver class
+DS3234 RTC;    // declare object for DS3234 class
+SHT15 sensor(SHT_clockPin, SHT_dataPin);  // declare object for SHT15 class
+SdFat sd; 		// declare object for SdFat class
+SdFile file;		// declare object for SdFile class
+
 #define POWA 4    // pin 4 supplies power to microSD card breakout and SHT15 sensor
 #define LED 7  // pin 7 controls LED
-
-// SD card stuff   ******************************
 int SDcsPin = 9; // pin 9 is CS pin for MicroSD breakout
-SdFat sd;
-SdFile file;
-char filename[15] = "log.csv";    // file name is automatically assigned by GUI. Format: "12345678.123". Cannot be more than 8 characters in length
-
-// SHT stuff   ******************************
 int SHT_clockPin = 3;  // pin used for SCK on SHT15 breakout
 int SHT_dataPin = 5;  // pin used for DATA on SHT15 breakout
-SHT15 sensor(SHT_clockPin, SHT_dataPin);  // declare object for SHT15 class
 
-// Interrupt stuff ****************************************************************
-ISR(PCINT0_vect)  // Interrupt Vector Routine to be executed when pin 8 receives an interrupt. PCINT0 defines ISRs for PC
+// ISR ****************************************************************
+ISR(PCINT0_vect)  // Interrupt Vector Routine to be executed when pin 8 receives an interrupt.
 {
   PORTB ^= (1<<PORTB1);
 }
