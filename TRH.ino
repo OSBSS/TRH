@@ -1,13 +1,10 @@
 //****************************************************************
 
-// OSBSS T/RH datalogger code - v0.04
-// Last edited on February 13, 2015
+// OSBSS T/RH datalogger code - v0.03
+// Last edited on February 16, 2015
 
-// Added BBSQW, enabling RTC to generate interrupts even on battery
-// BBSQW only works when the pullup on the RTC breakout is desoldered, forcing SQW pin to be pulled up to Pro Mini's VCC at all times
-// Added code to sync compile time with RTC (has a 15-20 second lag with actual time)
-// Idle current consumption now at 0.1mA
-// save initial state and direction of port D pins and restore before sleeping each time to avoid excessive power draw
+// RTC module ON, avg. current draw: 0.195mA
+// No time sync in code
 
 //****************************************************************
 
@@ -16,30 +13,17 @@
 #include <PowerSaver.h>
 #include <SHT15libmod2.h>
 #include <SdFat.h>
-#include <SPI.h>
-#include <Wire.h>
-#include <RTClib.h>
-#include <RTC_DS3234.h>
 
 PowerSaver chip;  // declare object for PowerSaver class
 
-// Avoid spurious warnings
-#undef PROGMEM
-#define PROGMEM __attribute__(( section(".progmem.data") ))
-#undef PSTR
-#define PSTR(s) (__extension__({static prog_char __c[] PROGMEM = (s); &__c[0];}))
-
 // RTC stuff   ******************************
-RTC_DS3234 RTC_Sync(10);  // pin 10 is SS pin for RTC
 DS3234 RTC;    // declare object for DS3234 class
 long interval = 60;  // set logging interval in SECONDS, eg: set 300 seconds for an interval of 5 mins
 int dayStart = 15, hourStart = 22, minStart = 10;    // define logger start time: day of the month, hour, minute
 
 // Main code stuff   ******************************
 #define POWA 4    // pin 4 supplies power to microSD card breakout and SHT15 sensor
-#define RTCPOWA 6    // pin 6 supplies power to DS3234 RTC
 #define LED 7  // pin 7 controls LED
-byte d, p, d1, p1, bytes=0;
 
 // SD card stuff   ******************************
 int SDcsPin = 9; // pin 9 is CS pin for MicroSD breakout
@@ -63,16 +47,9 @@ void setup()
 {
   Serial.begin(19200); // open serial at 19200 bps
   pinMode(POWA, OUTPUT);
-  pinMode(RTCPOWA, OUTPUT);
   pinMode(LED, OUTPUT);
   
   digitalWrite(POWA, HIGH);    // turn on SD card
-  digitalWrite(RTCPOWA, HIGH);    // turn on RTC
-  
-  // Sync compile time with RTC
-  SPI.begin();
-  RTC_Sync.begin();
-  RTC_Sync.adjust(DateTime(__DATE__, __TIME__));
   
   delay(1);    // give some delay to ensure RTC and SD are initialized properly
   
@@ -101,9 +78,6 @@ void setup()
   RTC.checkInterval(hourStart, minStart, interval); // Check if the logging interval is in secs, mins or hours
   RTC.alarm2set(dayStart, hourStart, minStart);  // Configure begin time
   RTC.alarmFlagClear();  // clear alarm flag
-  //RTC.setTempConvRate();  // set temperature conversion  rate to 512 seconds.
-                          // This significantly improves battery life of coin cell
-                          // at the cost of reduced time accuracy in environments with rapid temperature fluctuations
                           
   chip.sleepInterruptSetup();    // setup sleep function & pin change interrupts on the ATmega328p. Power-down mode is used here
 }
@@ -113,22 +87,7 @@ void loop()
 {
   
   digitalWrite(POWA, LOW);  // turn off microSD card to save power
-  //pinMode(RTCPOWA, INPUT); // setting RTC power to input to force the pin to high impedance state
-  digitalWrite(RTCPOWA, LOW);  // turn off RTC to save power
   delay(1);  // give some delay for SD card and RTC to be low before processor sleeps to avoid it being stuck
-  
-  if(bytes==0) // save the initial state
-  {
-    p=PORTD; // save initial states of pins on port D
-    d=DDRD; // save initial directions of pins on port D
-    bytes=1;
-  }
-  
-  p1=PORTD; // save states of pins on port D
-  d1=DDRD; // save directions of pins on port D
-  
-  PORTD=p; // restore initial states of pins on port D before sleeping
-  DDRD=d;  // restore initial directions of pins on port D before sleeping
   
   chip.turnOffADC();    // turn off ADC to save power
   chip.turnOffSPI();  // turn off SPI bus to save power
@@ -140,16 +99,10 @@ void loop()
                        // average current draw on Mini Pro should now be around 0.195 mA (with both onboard LEDs taken out)
                        // Processor will only wake up with an interrupt generated from the RTC, which occurs every logging interval
   
-  PORTD=p1; // restore states of pins on port D before sleeping
-  DDRD=d1;  // restore directions of pins on port D before sleeping   
-  
   chip.turnOnADC();    // enable ADC after processor wakes up
   chip.turnOnSPI();   // turn on SPI bus once the processor wakes up
   delay(1);    // important delay to ensure SPI bus is properly activated
-  digitalWrite(RTCPOWA, HIGH);    // turn on RTC
-  //pinMode(RTCPOWA, OUTPUT);  // this step is important here as it ensures the SQW pin is now pulled up to VCC
   RTC.alarmFlagClear();    // clear alarm flag
-  //RTC.setTempConvRate();
   pinMode(POWA, OUTPUT);
   digitalWrite(POWA, HIGH);  // turn on SD card power
   delay(1);    // give delay to let the SD card and SHT15 get full powa
