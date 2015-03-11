@@ -1,7 +1,10 @@
 //****************************************************************
 
 // OSBSS T/RH datalogger code - v0.03
-// Last edited on March 10, 2015
+// Last edited on February 16, 2015
+
+// RTC module ON, avg. current draw: 0.195mA
+// No time sync in code
 
 //****************************************************************
 
@@ -11,37 +14,37 @@
 #include <SHT15libmod2.h>
 #include <SdFat.h>
 
-// Launch Variables   ******************************
-long interval = 60;  // set logging interval in SECONDS, eg: set 300 seconds for an interval of 5 mins
-int dayStart = 10, hourStart = 14, minStart = 15;    // define logger start time: day of the month, hour, minute
-char filename[15] = "log.csv";    // Set filename Format: "12345678.123". Cannot be more than 8 characters in length, contain spaces or begin with a number
+PowerSaver chip;  // declare object for PowerSaver class
 
-// Global objects and variables   ******************************
+// RTC stuff   ******************************
+DS3234 RTC;    // declare object for DS3234 class
+long interval = 60;  // set logging interval in SECONDS, eg: set 300 seconds for an interval of 5 mins
+int dayStart = 15, hourStart = 22, minStart = 10;    // define logger start time: day of the month, hour, minute
+
+// Main code stuff   ******************************
 #define POWA 4    // pin 4 supplies power to microSD card breakout and SHT15 sensor
 #define LED 7  // pin 7 controls LED
+
+// SD card stuff   ******************************
 int SDcsPin = 9; // pin 9 is CS pin for MicroSD breakout
+SdFat sd;
+SdFile file;
+char filename[15] = "log.csv";    // file name is automatically assigned by GUI. Format: "12345678.123". Cannot be more than 8 characters in length
+
+// SHT stuff   ******************************
 int SHT_clockPin = 3;  // pin used for SCK on SHT15 breakout
 int SHT_dataPin = 5;  // pin used for DATA on SHT15 breakout
-
-PowerSaver chip;  	// declare object for PowerSaver class
-DS3234 RTC;    // declare object for DS3234 class
 SHT15 sensor(SHT_clockPin, SHT_dataPin);  // declare object for SHT15 class
-SdFat sd; 		// declare object for SdFat class
-SdFile file;		// declare object for SdFile class
 
-// ISR ****************************************************************
-ISR(PCINT0_vect)  // Interrupt Vector Routine to be executed when pin 8 receives an interrupt.
+// Interrupt stuff ****************************************************************
+ISR(PCINT0_vect)  // Interrupt Vector Routine to be executed when pin 8 receives an interrupt. PCINT0 defines ISRs for PC
 {
-  //PORTB ^= (1<<PORTB1);
-  asm("nop");
+  PORTB ^= (1<<PORTB1);
 }
 
 // setup ****************************************************************
 void setup()
 {
-  pinMode(6, OUTPUT);
-  digitalWrite(6, HIGH);
-  
   Serial.begin(19200); // open serial at 19200 bps
   pinMode(POWA, OUTPUT);
   pinMode(LED, OUTPUT);
@@ -90,7 +93,7 @@ void loop()
   chip.turnOffSPI();  // turn off SPI bus to save power
   //chip.turnOffWDT();  // turn off WatchDog Timer to save power (does not work for Pro Mini - only works for Uno)
   chip.turnOffBOD();    // turn off Brown-out detection to save power
-  
+    
   chip.goodNight();    // put processor in extreme power down mode - GOODNIGHT!
                        // this function saves previous states of analog pins and sets them to LOW INPUTS
                        // average current draw on Mini Pro should now be around 0.195 mA (with both onboard LEDs taken out)
@@ -99,14 +102,14 @@ void loop()
   chip.turnOnADC();    // enable ADC after processor wakes up
   chip.turnOnSPI();   // turn on SPI bus once the processor wakes up
   delay(1);    // important delay to ensure SPI bus is properly activated
-  
   RTC.alarmFlagClear();    // clear alarm flag
   pinMode(POWA, OUTPUT);
   digitalWrite(POWA, HIGH);  // turn on SD card power
   delay(1);    // give delay to let the SD card and SHT15 get full powa
   
-  RTC.checkDST(); // check and account for Daylight Savings Time in US
-  
+  String time = RTC.timeStamp();    // get date and time from RTC
+  SPCR = 0;  // reset SPI control register
+    
   for(int i=0; i<5; i++)
     analogRead(A0);  // first few readings from ADC may not be accurate, so they're cleared out here
   delay(1);
@@ -130,10 +133,7 @@ void loop()
     delay(10);
     file.open(filename, O_WRITE | O_AT_END);  // open file in write mode
     delay(1);
-    
-    String time = RTC.timeStamp();    // get date and time from RTC
-    SPCR = 0;  // reset SPI control register
-    
+        
     file.print(time);
     file.print(",");
     file.print(temperature, 3);  // print temperature upto 3 decimal places
