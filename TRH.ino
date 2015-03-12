@@ -92,6 +92,7 @@ void loop()
                        // average current draw on Mini Pro should now be around 0.195 mA (with both onboard LEDs taken out)
                        // Processor will only wake up with an interrupt generated from the RTC, which occurs every logging interval
   
+  // code will resume from here once the processor wakes up =============== //
   chip.turnOnADC();    // enable ADC after processor wakes up
   chip.turnOnSPI();   // turn on SPI bus once the processor wakes up
   delay(1);    // important delay to ensure SPI bus is properly activated
