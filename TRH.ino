@@ -1,7 +1,7 @@
 //****************************************************************
 
 // OSBSS T/RH datalogger code - v0.03
-// Last edited on March 10, 2015
+// Last edited on March 12, 2015
 
 //****************************************************************
 
@@ -13,7 +13,7 @@
 
 // Launch Variables   ******************************
 long interval = 60;  // set logging interval in SECONDS, eg: set 300 seconds for an interval of 5 mins
-int dayStart = 10, hourStart = 14, minStart = 15;    // define logger start time: day of the month, hour, minute
+int dayStart = 12, hourStart = 14, minStart = 30;    // define logger start time: day of the month, hour, minute
 char filename[15] = "log.csv";    // Set filename Format: "12345678.123". Cannot be more than 8 characters in length, contain spaces or begin with a number
 
 // Global objects and variables   ******************************
@@ -39,15 +39,12 @@ ISR(PCINT0_vect)  // Interrupt Vector Routine to be executed when pin 8 receives
 // setup ****************************************************************
 void setup()
 {
-  pinMode(6, OUTPUT);
-  digitalWrite(6, HIGH);
-  
   Serial.begin(19200); // open serial at 19200 bps
-  pinMode(POWA, OUTPUT);
+  
+  pinMode(POWA, OUTPUT);  // set output pins
   pinMode(LED, OUTPUT);
   
   digitalWrite(POWA, HIGH);    // turn on SD card
-  
   delay(1);    // give some delay to ensure RTC and SD are initialized properly
   
   if(!sd.init(SPI_FULL_SPEED, SDcsPin))  // initialize SD card on the SPI bus - very important
@@ -70,7 +67,6 @@ void setup()
     digitalWrite(LED, HIGH);
     delay(10);
     digitalWrite(LED, LOW);
-    delay(10);
   }
   RTC.checkInterval(hourStart, minStart, interval); // Check if the logging interval is in secs, mins or hours
   RTC.alarm2set(dayStart, hourStart, minStart);  // Configure begin time
@@ -101,7 +97,7 @@ void loop()
   delay(1);    // important delay to ensure SPI bus is properly activated
   
   RTC.alarmFlagClear();    // clear alarm flag
-  pinMode(POWA, OUTPUT);
+  pinMode(POWA, OUTPUT); 
   digitalWrite(POWA, HIGH);  // turn on SD card power
   delay(1);    // give delay to let the SD card and SHT15 get full powa
   
@@ -148,7 +144,6 @@ void loop()
     digitalWrite(LED, HIGH);
     delay(10);
     digitalWrite(LED, LOW);
-    delay(10);  
   }
   RTC.setNextAlarm();      //set next alarm before sleeping
   delay(1);
