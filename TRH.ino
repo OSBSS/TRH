@@ -1,7 +1,7 @@
 //****************************************************************
 
 // OSBSS T/RH datalogger code - v0.03
-// Last edited on March 12, 2015
+// Last edited on March 30, 2015
 
 //****************************************************************
 
@@ -47,7 +47,7 @@ void setup()
   digitalWrite(POWA, HIGH);    // turn on SD card
   delay(1);    // give some delay to ensure RTC and SD are initialized properly
   
-  if(!sd.init(SPI_FULL_SPEED, SDcsPin))  // initialize SD card on the SPI bus - very important
+  if(!sd.begin(SDcsPin, SPI_FULL_SPEED))  // initialize SD card on the SPI bus - very important
   {
     delay(10);
     SDcardError();
@@ -117,7 +117,7 @@ void loop()
   float dewPoint = sensor.getDewPoint(temperature, humidity); // calculate dew point using T and RH
   
   pinMode(SDcsPin, OUTPUT);
-  if(!sd.init(SPI_FULL_SPEED, SDcsPin))    // very important - reinitialize SD card on the SPI bus
+  if(!sd.begin(SDcsPin, SPI_FULL_SPEED))    // very important - reinitialize SD card on the SPI bus
   {
     delay(10);
     SDcardError();
@@ -183,7 +183,7 @@ float steinhart(float R)
   return T-273.15;
 }
 
-// file timestamps
+// file timestamps ****************************************************************
 void PrintFileTimeStamp() // Print timestamps to data file. Format: year, month, day, hour, min, sec
 { 
   file.timestamp(T_WRITE, RTC.year, RTC.month, RTC.day, RTC.hour, RTC.minute, RTC.second);    // edit date modified
